@@ -157,11 +157,17 @@ if (btnCloseReleases) {
 
 function renderReleaseNotes(releases) {
   releaseNotesContainer.innerHTML = "";
+  
+  if (!Array.isArray(releases) || releases.length === 0) {
+    releaseNotesContainer.innerHTML = "<p class='label'>Geen recente updates gevonden.</p>";
+    return;
+  }
+
   releases.forEach((rel) => {
     const box = document.createElement("div");
     box.className = "release-entry";
     
-    const changesHtml = rel.changes
+    const changesHtml = (rel.changes || [])
       .map((change) => `<li>${escapeHtml(change)}</li>`)
       .join("");
 
