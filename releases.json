@@ -1,1 +1,22 @@
-
+[
+  {
+    "version": "v1.3.0",
+    "date": "Oktober 2026",
+    "changes": [
+      "Verrassingsmodus: Namen van kopers standaard verborgen in admin-overzicht met toggle.",
+      "Cadeaus bewerken: Openstaande cadeaus direct aanpasbaar via het potloodicoon.",
+      "Drag & Drop: Volgorde van cadeaus handmatig verslepen op mobiel en desktop.",
+      "Slimme URL-invoer: Automatische https:// toevoeging en tracking-stripping bij links (bijv. Bol.com).",
+      "Bevestiging bij claimen: Extra controle voor familieleden om per ongeluk reserveren te voorkomen.",
+      "PWA & Navigatie-fix: Installeerbaar als zelfstandige app met geoptimaliseerde Android-navigatiebalk."
+    ]
+  },
+  {
+    "version": "v1.2.0",
+    "date": "September 2026",
+    "changes": [
+      "Modern dashboard-design met SVG-iconen en verbeterde typografie.",
+      "Pincode-beveiliging en gescheiden koper/beheerder authenticatie."
+    ]
+  }
+]
