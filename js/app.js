@@ -5,7 +5,7 @@ import {
   onSnapshot, 
   addDoc, 
   deleteDoc, 
-  updateDoc,
+  updateDoc, 
   setDoc, 
   serverTimestamp,
   writeBatch
@@ -28,12 +28,15 @@ const buyerPinFromUrl = urlParams.get("pin");
 
 let isCurrentUserAdmin = false;
 let currentBuyerName = localStorage.getItem("buyer_name") || "";
+// Standaard UIT (false) tenzij expliciet op true gezet door gebruiker
+let showGiverNames = localStorage.getItem("show_giver_names") === "true";
 let currentListBuyerPin = "";
 let cachedItems = [];
 let cachedClaims = {};
 let cachedLists = [];
 let pendingClaimItemId = null;
 let editingListId = null;
+let editingItemId = null;
 
 let unsubscribeItems = null;
 let unsubscribeClaims = null;
@@ -59,7 +62,7 @@ const modalCreateList = document.getElementById("modal-create-list");
 const formCreateList = document.getElementById("form-create-list");
 const btnCancelList = document.getElementById("btn-cancel-list");
 
-// Bewerk modal
+// Bewerk modal (Lijst)
 const modalEditList = document.getElementById("modal-edit-list");
 const formEditList = document.getElementById("form-edit-list");
 const editListTitleInput = document.getElementById("edit-list-title");
@@ -72,12 +75,21 @@ const buyerStatusText = document.getElementById("buyer-status-text");
 const btnChangeBuyerName = document.getElementById("btn-change-buyer-name");
 const displayBuyerPin = document.getElementById("display-buyer-pin");
 const btnShare = document.getElementById("btn-share");
+const toggleShowNames = document.getElementById("toggle-show-names");
 
-// Cadeau modal (Admin)
+// Cadeau toevoegen & bewerken modals
 const modalAdd = document.getElementById("modal-add-item");
 const btnOpenAddModal = document.getElementById("btn-open-add-modal");
 const btnCloseModal = document.getElementById("btn-close-modal");
 const formAddItem = document.getElementById("form-add-item");
+
+const modalEditItem = document.getElementById("modal-edit-item");
+const formEditItem = document.getElementById("form-edit-item");
+const btnCancelEditItem = document.getElementById("btn-cancel-edit-item");
+const editItemTitle = document.getElementById("edit-item-title");
+const editItemUrl = document.getElementById("edit-item-url");
+const editItemPrice = document.getElementById("edit-item-price");
+const editItemNotes = document.getElementById("edit-item-notes");
 
 // Koper modal (Familie)
 const modalBuyerName = document.getElementById("modal-buyer-name");
@@ -86,10 +98,19 @@ const formBuyerName = document.getElementById("form-buyer-name");
 const inputBuyerName = document.getElementById("input-buyer-name");
 const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
 
+// Toggle setup
+if (toggleShowNames) {
+  toggleShowNames.checked = showGiverNames;
+  toggleShowNames.addEventListener("change", () => {
+    showGiverNames = toggleShowNames.checked;
+    localStorage.setItem("show_giver_names", showGiverNames ? "true" : "false");
+    renderItems();
+  });
+}
+
 
 // --- 2. AUTHENTICATION & ROUTERING ---
 onAuthStateChanged(auth, async (user) => {
-  // Alleen admin als het mailadres klopt EN er geen pincode in de URL zit
   const urlHasPin = urlParams.has("pin");
   isCurrentUserAdmin = !!(user && user.email === ADMIN_EMAIL && !urlHasPin);
 
@@ -104,18 +125,16 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   if (listId) {
-    // Familie/koper route: zorg dat er EERST een anonieme sessie actief is voor Firestore
     if (!user) {
       try {
         await signInAnonymously(auth);
-        return; // onAuthStateChanged triggert direct opnieuw zodra de user klaarstaat
+        return;
       } catch (err) {
         console.error("Anoniem aanmelden mislukt:", err);
       }
     }
     renderListDetail();
   } else {
-    // Dashboard route: puur voor beheerder
     if (isCurrentUserAdmin) {
       if (modalAdminLogin && modalAdminLogin.open) modalAdminLogin.close();
       renderDashboard();
@@ -230,7 +249,7 @@ function renderListsCards() {
         </div>
         <div class="list-actions">
           <button class="btn btn-text btn-edit" title="Lijstnaam bewerken">✏️</button>
-          <button class="btn btn-danger btn-delete" title="Lijst verwijderen">🗑️</button>
+          <button class="btn btn-danger btn-delete" title="Lijst verwijderen">🗑️️</button>
         </div>
       </div>
     `;
@@ -258,7 +277,7 @@ function renderListsCards() {
   });
 }
 
-// Drag & Drop
+// Drag & Drop (Muis + Touch)
 let draggedEl = null;
 
 function attachDragEvents(li) {
@@ -276,10 +295,14 @@ function attachDragEvents(li) {
 
   li.ondragover = (e) => {
     e.preventDefault();
-    if (draggedEl && draggedEl !== li) li.classList.add("drag-over");
+    if (draggedEl && draggedEl !== li) {
+      li.classList.add("drag-over");
+    }
   };
 
-  li.ondragleave = () => li.classList.remove("drag-over");
+  li.ondragleave = () => {
+    li.classList.remove("drag-over");
+  };
 
   li.ondrop = async (e) => {
     e.preventDefault();
@@ -305,7 +328,9 @@ function attachDragEvents(li) {
   handle.addEventListener("touchmove", (e) => {
     const targetEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)?.closest(".item-card");
     document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
-    if (targetEl && targetEl !== draggedEl) targetEl.classList.add("drag-over");
+    if (targetEl && targetEl !== draggedEl) {
+      targetEl.classList.add("drag-over");
+    }
   }, { passive: true });
 
   handle.addEventListener("touchend", async (e) => {
@@ -342,7 +367,6 @@ async function saveNewListOrder() {
 function renderListDetail() {
   if (listsOverviewPanel) listsOverviewPanel.classList.add("hidden");
 
-  // Interface configuratie: beheerder vs familie
   if (isCurrentUserAdmin) {
     btnBackOverview.classList.remove("hidden");
     btnBackOverview.onclick = () => { window.location.search = ""; };
@@ -361,6 +385,7 @@ function renderListDetail() {
       }
     };
 
+    // Cadeau toevoegen modal
     btnOpenAddModal.onclick = () => modalAdd.showModal();
     btnCloseModal.onclick = () => modalAdd.close();
 
@@ -385,8 +410,30 @@ function renderListDetail() {
       modalAdd.close();
     };
 
+    // Cadeau bewerken modal
+    btnCancelEditItem.onclick = () => modalEditItem.close();
+    formEditItem.onsubmit = async (e) => {
+      e.preventDefault();
+      const title = editItemTitle.value.trim();
+      const url = editItemUrl.value.trim();
+      const price = parseFloat(editItemPrice.value);
+      const notes = editItemNotes.value.trim();
+
+      if (!title || !editingItemId) return;
+
+      await updateDoc(doc(db, "lists", listId, "items", editingItemId), {
+        title,
+        url: url || null,
+        price: isNaN(price) ? null : price,
+        notes: notes || null
+      });
+
+      modalEditItem.close();
+      editingItemId = null;
+    };
+
   } else {
-    // Familie/koper: alle beheer elementen strikt verbergen
+    // Familie / Koper weergave
     btnBackOverview.classList.add("hidden");
     adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
@@ -400,7 +447,7 @@ function renderListDetail() {
     btnCancelBuyerName.onclick = () => modalBuyerName.close();
   }
 
-  // Luister naar lijstmetadata en voer PIN-verificatie uit voor kopers
+  // Metadata luisteren en PIN check
   if (unsubscribeListMeta) unsubscribeListMeta();
   unsubscribeListMeta = onSnapshot(doc(db, "lists", listId), (docSnap) => {
     if (!docSnap.exists()) {
@@ -442,7 +489,6 @@ function startDataListeners() {
   if (unsubscribeItems) unsubscribeItems();
   if (unsubscribeClaims) unsubscribeClaims();
 
-  // Luister naar items
   unsubscribeItems = onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
     cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     renderItems();
@@ -450,7 +496,6 @@ function startDataListeners() {
     console.error("Fout bij ophalen items:", err);
   });
 
-  // Luister naar claims
   unsubscribeClaims = onSnapshot(collection(db, "lists", listId, "claims"), (snapshot) => {
     cachedClaims = {};
     snapshot.docs.forEach(docSnap => {
@@ -498,7 +543,13 @@ function renderItems() {
       if (isClaimed) {
         const badge = document.createElement("div");
         badge.className = "claim-badge-admin";
-        badge.textContent = `✓ Gekozen door: ${claim.claimedBy || "Onbekend"}`;
+
+        // Respecteer de toggle
+        if (showGiverNames) {
+          badge.textContent = `✓ Gekozen door: ${claim.claimedBy || "Onbekend"}`;
+        } else {
+          badge.textContent = `✓ Gekozen (Verrassing)`;
+        }
         actionsContainer.appendChild(badge);
 
         const btnReset = document.createElement("button");
@@ -506,15 +557,31 @@ function renderItems() {
         btnReset.textContent = "Reservering wissen";
         btnReset.onclick = () => deleteDoc(doc(db, "lists", listId, "claims", item.id));
         actionsContainer.appendChild(btnReset);
+
+      } else {
+        // Alleen aanpassen als het cadeau nog openstaat
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "btn btn-text btn-small";
+        btnEdit.textContent = "✏️ Aanpassen";
+        btnEdit.onclick = () => {
+          editingItemId = item.id;
+          editItemTitle.value = item.title || "";
+          editItemUrl.value = item.url || "";
+          editItemPrice.value = item.price || "";
+          editItemNotes.value = item.notes || "";
+          modalEditItem.showModal();
+        };
+        actionsContainer.appendChild(btnEdit);
       }
 
       const btnDelete = document.createElement("button");
       btnDelete.className = "btn btn-text btn-danger btn-small";
-      btnDelete.textContent = "🗑️ Cadeau wissen";
+      btnDelete.textContent = "🗑️ Verwijderen";
       btnDelete.onclick = () => deleteDoc(doc(db, "lists", listId, "items", item.id));
       actionsContainer.appendChild(btnDelete);
 
     } else {
+      // Familie / Koper interface
       if (!isClaimed) {
         const btnClaim = document.createElement("button");
         btnClaim.className = "btn btn-primary full-width";
