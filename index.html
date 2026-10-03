@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verlanglijstje</title>
   
-  <!-- PWA & Favicon -->
+  <!-- PWA & Android Navigatie / Kleurschema -->
   <link rel="manifest" href="manifest.json">
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#f8fafc">
@@ -13,7 +13,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Verlanglijst">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
-
   
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -80,6 +79,26 @@
       <ul id="items-list" class="item-list"></ul>
     </main>
 
+    <!-- Footer / Admin info (Alleen zichtbaar als ingelogd als beheerder) -->
+    <footer id="admin-footer" class="admin-footer hidden">
+      <button id="btn-open-releases" class="btn btn-text btn-small">
+        ✨ Wat is er nieuw?
+      </button>
+    </footer>
+
+    <!-- Modal: Release Notes -->
+    <dialog id="modal-release-notes" class="modal-large">
+      <div class="modal-header">
+        <h3>Wat is er nieuw?</h3>
+      </div>
+      <div id="release-notes-container" class="release-notes-body">
+        <p class="label">Updates laden...</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-releases" class="btn btn-primary">Sluiten</button>
+      </div>
+    </dialog>
+
     <!-- Modal: Admin Login (Pincode) -->
     <dialog id="modal-admin-login">
       <form id="form-admin-login" method="dialog">
@@ -127,7 +146,6 @@
         <input type="text" id="item-title" required placeholder="bijv. Lego Ruimteschip">
 
         <label for="item-url">Link naar webshop</label>
-        <!-- type="text" zodat links zoals bol.com/... zonder https direct werken -->
         <input type="text" id="item-url" placeholder="bijv. bol.com/... of https://...">
 
         <label for="item-price">Richtprijs (€)</label>
@@ -170,7 +188,7 @@
     <dialog id="modal-confirm-claim">
       <form id="form-confirm-claim" method="dialog">
         <h3>Cadeau reserveren</h3>
-        <p id="confirm-claim-text" style="font-size: 0.95rem; color: var(--text);">Weet je zeker dat je dit cadeau wilt kopen?</p>
+        <p id="confirm-claim-text" style="font-size: 0.95rem; color: var(--text);">Weet je zeker dat je dit cadeau wilt reserveren?</p>
         <p class="label">Anderen zien dan dat dit cadeau al gekocht wordt.</p>
         <div class="modal-actions">
           <button type="button" id="btn-cancel-confirm-claim" class="btn btn-text">Annuleren</button>
