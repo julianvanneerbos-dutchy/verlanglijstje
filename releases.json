@@ -1,11 +1,21 @@
 [
   {
+    "version": "v1.4.0",
+    "date": "Oktober 2026",
+    "changes": [
+      "Icoon-harmonisatie: Bewerk- en verwijdericonen gelijkgetrokken met de boodschappenapp (strakke Feather/Lucide icons).",
+      "Terminologie: Actieknoppen voor familie aangepast naar '🎁 Dit geef ik!' en 'Ja, dit geef ik!'.",
+      "Release notes: Nieuwe compacte kaartweergave met versielabels en subtiele styling.",
+      "Google Cloud beveiliging: API-sleutel strikt beperkt tot Firestore & Auth en beveiligd met domeinrestricties."
+    ]
+  },
+  {
     "version": "v1.3.0",
     "date": "Oktober 2026",
     "changes": [
       "Verrassingsmodus: Namen van kopers standaard verborgen in admin-overzicht met toggle.",
       "Cadeaus bewerken: Openstaande cadeaus direct aanpasbaar via het potloodicoon.",
-      "Drag & Drop: Volgorde van cadeaus handmatig verslepen op mobiel en desktop.",
+      "Drag & Drop: Volgorde van cadeaus en lijstjes handmatig verslepen op mobiel en desktop.",
       "Slimme URL-invoer: Automatische https:// toevoeging en tracking-stripping bij links (bijv. Bol.com).",
       "Bevestiging bij claimen: Extra controle voor familieleden om per ongeluk reserveren te voorkomen.",
       "PWA & Navigatie-fix: Installeerbaar als zelfstandige app met geoptimaliseerde Android-navigatiebalk."
