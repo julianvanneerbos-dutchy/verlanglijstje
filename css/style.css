@@ -489,3 +489,8 @@ input:focus, textarea:focus {
 .hidden {
   display: none !important;
 }
+
+/* Zorg dat navigatieknoppen onderaan nooit over de inhoud vallen */
+body {
+  padding-bottom: max(3rem, env(safe-area-inset-bottom, 3rem));
+}
