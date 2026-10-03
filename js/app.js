@@ -20,11 +20,11 @@ import {
 
 // --- 1. CONFIGURATIE & AUTH SETUP ---
 const auth = getAuth();
-// Zorg dat dit e-mailadres exact matcht met de gebruiker in Firebase Authentication & Firestore Rules:
-const ADMIN_EMAIL = "julian.vanneerbos@gmail.com"; 
+const ADMIN_EMAIL = "julian.vanneerbos@gmail.com";
 
 const urlParams = new URLSearchParams(window.location.search);
 const listId = urlParams.get("list");
+const buyerPinFromUrl = urlParams.get("pin");
 
 let isCurrentUserAdmin = false;
 let currentBuyerName = localStorage.getItem("buyer_name") || "";
@@ -83,9 +83,11 @@ const inputBuyerName = document.getElementById("input-buyer-name");
 const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
 
 
-// --- 2. AUTHENTICATION FLOW & INITIALISATIE ---
+// --- 2. AUTHENTICATION & ROUTERING ---
 onAuthStateChanged(auth, async (user) => {
-  isCurrentUserAdmin = user && user.email === ADMIN_EMAIL;
+  // Alleen als admin behandelen als het e-mailadres klopt én er géén pincode in de URL zit
+  const urlHasPin = urlParams.has("pin");
+  isCurrentUserAdmin = user && user.email === ADMIN_EMAIL && !urlHasPin;
 
   if (isCurrentUserAdmin) {
     btnLogout.classList.remove("hidden");
@@ -98,22 +100,21 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   if (listId) {
-    // Familie/Koper route: indien nog niet ingelogd, log geruisloos anoniem in voor Firestore toegang
+    // Familie/koper: zorg voor een anonieme sessie voor Firestore-toegang
     if (!user) {
       try {
         await signInAnonymously(auth);
       } catch (err) {
-        console.error("Anoniem inloggen mislukt:", err);
+        console.error("Anoniem aanmelden mislukt:", err);
       }
     }
     renderListDetail();
   } else {
-    // Dashboard route: alleen voor admin
+    // Dashboard route: uitsluitend voor beheerder
     if (isCurrentUserAdmin) {
       if (modalAdminLogin.open) modalAdminLogin.close();
       renderDashboard();
     } else {
-      // Vraag direct om de beheerder-pincode
       showAdminLoginModal();
     }
   }
@@ -249,7 +250,7 @@ function renderListsCards() {
   });
 }
 
-// Drag & Drop
+// Sorteren & drag-and-drop
 let draggedEl = null;
 
 function attachDragEvents(li) {
@@ -331,7 +332,7 @@ async function saveNewListOrder() {
 // SCENARIO B: LIJSTWEERGAVE (Cadeaus & Claims)
 // ===================================================
 function renderListDetail() {
-  // Beheerder-specifieke knoppen
+  // Beheerder vs Koper interface configuratie
   if (isCurrentUserAdmin) {
     btnBackOverview.classList.remove("hidden");
     btnBackOverview.onclick = () => { window.location.search = ""; };
@@ -375,7 +376,7 @@ function renderListDetail() {
     };
 
   } else {
-    // Familie weergave
+    // Familie/koper weergave: verberg strikt alle beheer-elementen
     btnBackOverview.classList.add("hidden");
     adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
@@ -389,17 +390,32 @@ function renderListDetail() {
     btnCancelBuyerName.onclick = () => modalBuyerName.close();
   }
 
-  // Luister naar lijstmetadata
+  // Luister naar lijstmetadata en voer PIN-verificatie uit voor kopers
   onSnapshot(doc(db, "lists", listId), (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      listTitleEl.textContent = data.title || "Verlanglijstje";
-      currentListBuyerPin = data.buyerPin || "";
-      if (isCurrentUserAdmin && displayBuyerPin) {
-        displayBuyerPin.textContent = currentListBuyerPin;
-      }
-    } else {
+    if (!docSnap.exists()) {
       listTitleEl.textContent = "Lijst niet gevonden";
+      itemsListEl.innerHTML = "<p class='label'>Dit verlanglijstje bestaat niet meer.</p>";
+      buyerPanel.classList.add("hidden");
+      return;
+    }
+
+    const data = docSnap.data();
+    listTitleEl.textContent = data.title || "Verlanglijstje";
+    currentListBuyerPin = data.buyerPin || "";
+
+    if (isCurrentUserAdmin) {
+      if (displayBuyerPin) displayBuyerPin.textContent = currentListBuyerPin;
+    } else {
+      if (buyerPinFromUrl !== currentListBuyerPin) {
+        buyerPanel.classList.add("hidden");
+        itemsListEl.innerHTML = `
+          <div class="card" style="text-align: center; padding: 2rem;">
+            <h3>🔒 Toegang geweigerd</h3>
+            <p class="label" style="margin-top: 0.5rem;">De pincode in deze link klopt niet of is verlopen.</p>
+          </div>
+        `;
+        return;
+      }
     }
   });
 
