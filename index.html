@@ -13,7 +13,16 @@
       <div id="user-badge" class="badge hidden"></div>
     </header>
 
-    <!-- Beheerder Info & Deelkaart (Alleen zichtbaar voor Admin) -->
+    <!-- 1. Startscherm / Overzicht van alle lijstjes -->
+    <section id="lists-overview-panel" class="card hidden">
+      <h2>Mijn Verlanglijstjes</h2>
+      <ul id="all-lists-container" class="item-list" style="margin-top: 1rem;"></ul>
+      <button id="btn-create-new-list" class="btn btn-primary full-width" style="margin-top: 1rem;">
+        + Nieuw verlanglijstje maken
+      </button>
+    </section>
+
+    <!-- 2. Beheerder Paneel (Alleen zichtbaar als ?admin=true&list=...) -->
     <section id="admin-panel" class="card hidden">
       <div class="share-box">
         <div>
@@ -25,15 +34,28 @@
       <button id="btn-open-add-modal" class="btn btn-secondary full-width">+ Cadeau toevoegen</button>
     </section>
 
-    <!-- Koper Statusbanner (Alleen zichtbaar voor Familie) -->
+    <!-- 3. Koper Statusbanner (Alleen zichtbaar voor familie) -->
     <section id="buyer-panel" class="status-banner hidden">
       <p id="buyer-status-text">Lijst laden...</p>
     </section>
 
-    <!-- Cadeaulijst -->
+    <!-- 4. Cadeaulijst -->
     <main>
       <ul id="items-list" class="item-list"></ul>
     </main>
+
+    <!-- Modal: Nieuwe lijst aanmaken -->
+    <dialog id="modal-create-list">
+      <form id="form-create-list" method="dialog">
+        <h3>Nieuw verlanglijstje</h3>
+        <label for="new-list-title">Titel van de lijst *</label>
+        <input type="text" id="new-list-title" required placeholder="bijv. Verjaardag Guusje">
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-list" class="btn btn-text">Annuleren</button>
+          <button type="submit" class="btn btn-primary">Aanmaken</button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- Modal: Cadeau toevoegen (Admin) -->
     <dialog id="modal-add-item">
