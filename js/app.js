@@ -18,6 +18,15 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
+// --- 0. PWA SERVICE WORKER REGISTRATIE ---
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((err) => {
+      console.warn("ServiceWorker registratie mislukt:", err);
+    });
+  });
+}
+
 // --- 1. MODERNE SVG ICONEN ---
 const ICONS = {
   drag: `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Sleep om te sorteren"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
@@ -97,6 +106,12 @@ const editItemUrl = document.getElementById("edit-item-url");
 const editItemPrice = document.getElementById("edit-item-price");
 const editItemNotes = document.getElementById("edit-item-notes");
 
+// Bevestiging claimen modal
+const modalConfirmClaim = document.getElementById("modal-confirm-claim");
+const formConfirmClaim = document.getElementById("form-confirm-claim");
+const confirmClaimText = document.getElementById("confirm-claim-text");
+const btnCancelConfirmClaim = document.getElementById("btn-cancel-confirm-claim");
+
 // Koper modal (Familie)
 const modalBuyerName = document.getElementById("modal-buyer-name");
 const modalBuyerTitle = document.getElementById("modal-buyer-title");
@@ -115,7 +130,33 @@ if (toggleShowNames) {
 }
 
 
-// --- 3. AUTHENTICATION & ROUTERING ---
+// --- 3. URL OPSCHONING HELPER ---
+function cleanWebUrl(rawUrl) {
+  if (!rawUrl) return null;
+  let urlStr = rawUrl.trim();
+  if (!urlStr) return null;
+
+  // Voeg https:// toe als er nog geen protocol voor staat
+  if (!/^https?:\/\//i.test(urlStr)) {
+    urlStr = "https://" + urlStr;
+  }
+
+  try {
+    const parsed = new URL(urlStr);
+    // Verwijder veelvoorkomende tracking tags (affiliate/social/analytics)
+    const trackingParams = [
+      "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", 
+      "fbclid", "gclid", "ref", "ref_", "tag"
+    ];
+    trackingParams.forEach((param) => parsed.searchParams.delete(param));
+    return parsed.toString();
+  } catch (err) {
+    return urlStr;
+  }
+}
+
+
+// --- 4. AUTHENTICATION & ROUTERING ---
 onAuthStateChanged(auth, async (user) => {
   const urlHasPin = urlParams.has("pin");
   isCurrentUserAdmin = !!(user && user.email === ADMIN_EMAIL && !urlHasPin);
@@ -316,13 +357,15 @@ function renderListDetail() {
       }
     };
 
+    // Toevoegen modal
     btnOpenAddModal.onclick = () => modalAdd.showModal();
     btnCloseModal.onclick = () => modalAdd.close();
 
     formAddItem.onsubmit = async (e) => {
       e.preventDefault();
       const title = document.getElementById("item-title").value.trim();
-      const url = document.getElementById("item-url").value.trim();
+      const rawUrl = document.getElementById("item-url").value;
+      const url = cleanWebUrl(rawUrl);
       const price = parseFloat(document.getElementById("item-price").value);
       const notes = document.getElementById("item-notes").value.trim();
 
@@ -332,7 +375,7 @@ function renderListDetail() {
 
       await addDoc(collection(db, "lists", listId, "items"), {
         title,
-        url: url || null,
+        url: url,
         price: isNaN(price) ? null : price,
         notes: notes || null,
         order: newOrderIndex,
@@ -343,11 +386,12 @@ function renderListDetail() {
       modalAdd.close();
     };
 
+    // Bewerken modal
     btnCancelEditItem.onclick = () => modalEditItem.close();
     formEditItem.onsubmit = async (e) => {
       e.preventDefault();
       const title = editItemTitle.value.trim();
-      const url = editItemUrl.value.trim();
+      const url = cleanWebUrl(editItemUrl.value);
       const price = parseFloat(editItemPrice.value);
       const notes = editItemNotes.value.trim();
 
@@ -355,7 +399,7 @@ function renderListDetail() {
 
       await updateDoc(doc(db, "lists", listId, "items", editingItemId), {
         title,
-        url: url || null,
+        url: url,
         price: isNaN(price) ? null : price,
         notes: notes || null
       });
@@ -365,6 +409,7 @@ function renderListDetail() {
     };
 
   } else {
+    // Familie / Koper weergave
     btnBackOverview.classList.add("hidden");
     adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
@@ -378,7 +423,7 @@ function renderListDetail() {
     btnCancelBuyerName.onclick = () => modalBuyerName.close();
   }
 
-  // Luister naar metadata & PIN check
+  // Metadata luisteren & PIN check
   if (unsubscribeListMeta) unsubscribeListMeta();
   unsubscribeListMeta = onSnapshot(doc(db, "lists", listId), (docSnap) => {
     if (!docSnap.exists()) {
@@ -423,7 +468,7 @@ function startDataListeners() {
   unsubscribeItems = onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
     cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 
-    // Sorteren op order veld (fallback naar createdAt)
+    // Sorteren op ingestelde volgorde
     cachedItems.sort((a, b) => {
       const orderA = a.order !== undefined ? a.order : 9999;
       const orderB = b.order !== undefined ? b.order : 9999;
@@ -528,7 +573,6 @@ function renderItems() {
       btnDelete.onclick = () => deleteDoc(doc(db, "lists", listId, "items", item.id));
       actionsContainer.appendChild(btnDelete);
 
-      // Koppel drag & touch reordering voor cadeautjes
       attachDragEvents(li, cachedItems, renderItems, saveNewItemOrder);
 
     } else {
@@ -537,7 +581,7 @@ function renderItems() {
         const btnClaim = document.createElement("button");
         btnClaim.className = "btn btn-primary full-width";
         btnClaim.textContent = "🎁 Dit koop ik!";
-        btnClaim.onclick = () => handleClaimClick(item.id);
+        btnClaim.onclick = () => triggerClaimConfirmation(item);
         actionsContainer.appendChild(btnClaim);
       } else {
         const statusSpan = document.createElement("span");
@@ -567,18 +611,40 @@ async function saveNewItemOrder() {
   await batch.commit();
 }
 
-function handleClaimClick(itemId) {
+
+// --- 5. CLAIM WORKFLOW MET BEVESTIGINGSDIALOOG ---
+function triggerClaimConfirmation(item) {
+  pendingClaimItemId = item.id;
+
   if (!currentBuyerName) {
-    pendingClaimItemId = itemId;
+    // Vraag eerst wie de koper is
     modalBuyerTitle.textContent = "Wie ben je?";
     btnCancelBuyerName.classList.add("hidden");
     inputBuyerName.value = "";
     modalBuyerName.showModal();
   } else {
-    executeClaim(itemId, currentBuyerName);
+    // Toon de vriendelijke bevestigingsmodal
+    confirmClaimText.textContent = `Weet je zeker dat je "${item.title}" wilt reserveren?`;
+    modalConfirmClaim.showModal();
   }
 }
 
+// Bevestigingsknop afhandeling
+btnCancelConfirmClaim.onclick = () => {
+  modalConfirmClaim.close();
+  pendingClaimItemId = null;
+};
+
+formConfirmClaim.onsubmit = async (e) => {
+  e.preventDefault();
+  if (pendingClaimItemId && currentBuyerName) {
+    await executeClaim(pendingClaimItemId, currentBuyerName);
+    modalConfirmClaim.close();
+    pendingClaimItemId = null;
+  }
+};
+
+// Naam opslaan formulier
 if (formBuyerName) {
   formBuyerName.onsubmit = async (e) => {
     e.preventDefault();
@@ -590,6 +656,7 @@ if (formBuyerName) {
     localStorage.setItem("buyer_name", currentBuyerName);
     modalBuyerName.close();
 
+    // Werk eventuele eerdere claims van deze koper bij
     if (oldName && oldName !== newName) {
       Object.keys(cachedClaims).forEach(async (id) => {
         if (cachedClaims[id].claimedBy === oldName) {
@@ -598,9 +665,13 @@ if (formBuyerName) {
       });
     }
 
+    // Als er een claim klaarstond, vraag alsnog bevestiging
     if (pendingClaimItemId) {
-      executeClaim(pendingClaimItemId, currentBuyerName);
-      pendingClaimItemId = null;
+      const item = cachedItems.find((i) => i.id === pendingClaimItemId);
+      if (item) {
+        confirmClaimText.textContent = `Weet je zeker dat je "${item.title}" wilt reserveren?`;
+        modalConfirmClaim.showModal();
+      }
     }
 
     renderItems();
@@ -621,7 +692,6 @@ async function executeClaim(itemId, name) {
 let draggedEl = null;
 
 function attachDragEvents(li, arrayRef, renderCallback, saveCallback) {
-  // Muis events
   li.ondragstart = (e) => {
     draggedEl = li;
     li.classList.add("dragging");
@@ -660,7 +730,6 @@ function attachDragEvents(li, arrayRef, renderCallback, saveCallback) {
     await saveCallback();
   };
 
-  // Touch events via de specifieke sleephendel
   const handle = li.querySelector(".drag-handle");
   if (!handle) return;
 
