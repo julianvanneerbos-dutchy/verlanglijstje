@@ -10,10 +10,13 @@
   <div id="app" class="container">
     <header class="header">
       <h1 id="list-title">Verlanglijstje</h1>
-      <button id="btn-back-overview" class="btn btn-text hidden">← Terug naar overzicht</button>
+      <div class="header-actions">
+        <button id="btn-back-overview" class="btn btn-text hidden">← Overzicht</button>
+        <button id="btn-logout" class="btn btn-text hidden" title="Uitloggen als beheerder">Uitloggen</button>
+      </div>
     </header>
 
-    <!-- 1. Startscherm / Overzicht van alle lijstjes -->
+    <!-- 1. Startscherm / Overzicht van alle lijstjes (Alleen voor ingelogde beheerder) -->
     <section id="lists-overview-panel" class="card hidden">
       <div class="panel-header">
         <h2>Mijn Verlanglijstjes</h2>
@@ -25,7 +28,7 @@
       </button>
     </section>
 
-    <!-- 2. Beheerder Paneel (Alleen als ?admin=true&list=...) -->
+    <!-- 2. Beheerder Paneel (Alleen als ingelogde admin in een specifieke lijst zit) -->
     <section id="admin-panel" class="card hidden">
       <div class="share-box">
         <div>
@@ -37,7 +40,7 @@
       <button id="btn-open-add-modal" class="btn btn-secondary full-width">+ Cadeau toevoegen</button>
     </section>
 
-    <!-- 3. Koper Statusbanner (Alleen voor familie) -->
+    <!-- 3. Koper Statusbanner (Voor familieleden) -->
     <section id="buyer-panel" class="status-banner hidden">
       <div class="buyer-banner-content">
         <p id="buyer-status-text">Lijst laden...</p>
@@ -49,6 +52,19 @@
     <main>
       <ul id="items-list" class="item-list"></ul>
     </main>
+
+    <!-- Modal: Admin Login (Pincode) -->
+    <dialog id="modal-admin-login">
+      <form id="form-admin-login" method="dialog">
+        <h3>Beheerder Toegang</h3>
+        <p class="label">Voer je admin-pincode in om je verlanglijstjes te beheren.</p>
+        <input type="password" id="input-admin-pin" required placeholder="Pincode" inputmode="numeric" autocomplete="current-password">
+        <div id="login-error" class="label" style="color: var(--danger); display: none; margin-top: 0.25rem;">Onjuiste pincode</div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Inloggen</button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- Modal: Nieuwe lijst aanmaken -->
     <dialog id="modal-create-list">
