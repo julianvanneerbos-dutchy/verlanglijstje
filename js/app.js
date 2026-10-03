@@ -21,7 +21,7 @@ import {
 // --- 1. CONFIGURATIE & AUTH SETUP ---
 const auth = getAuth();
 // Zorg dat dit e-mailadres exact matcht met de gebruiker in Firebase Authentication & Firestore Rules:
-const ADMIN_EMAIL = "beheer@verlanglijst.nl"; 
+const ADMIN_EMAIL = "julian.vanneerbos@gmail.com"; 
 
 const urlParams = new URLSearchParams(window.location.search);
 const listId = urlParams.get("list");
