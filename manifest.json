@@ -1,8 +1,10 @@
 {
+  "id": "verlanglijst-app-unique-id",
   "name": "Verlanglijstje",
   "short_name": "Verlanglijst",
   "description": "Moderne en veilige verlanglijstjes web-app",
-  "start_url": "./",
+  "start_url": "/verlanglijstje/",
+  "scope": "/verlanglijstje/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
