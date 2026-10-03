@@ -21,7 +21,7 @@ import {
 // --- 0. PWA SERVICE WORKER REGISTRATIE ---
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((err) => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((err) => {
       console.warn("ServiceWorker registratie mislukt:", err);
     });
   });
@@ -119,6 +119,13 @@ const formBuyerName = document.getElementById("form-buyer-name");
 const inputBuyerName = document.getElementById("input-buyer-name");
 const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
 
+// Release notes elementen
+const adminFooter = document.getElementById("admin-footer");
+const btnOpenReleases = document.getElementById("btn-open-releases");
+const modalReleaseNotes = document.getElementById("modal-release-notes");
+const btnCloseReleases = document.getElementById("btn-close-releases");
+const releaseNotesContainer = document.getElementById("release-notes-container");
+
 // Toggle setup
 if (toggleShowNames) {
   toggleShowNames.checked = showGiverNames;
@@ -129,6 +136,48 @@ if (toggleShowNames) {
   });
 }
 
+// Release Notes modal events
+if (btnOpenReleases) {
+  btnOpenReleases.onclick = async () => {
+    modalReleaseNotes.showModal();
+    try {
+      const res = await fetch("./releases.json?v=" + Date.now());
+      if (!res.ok) throw new Error("Kon release notes niet ophalen");
+      const releases = await res.json();
+      renderReleaseNotes(releases);
+    } catch (err) {
+      releaseNotesContainer.innerHTML = "<p class='label'>Kon updates niet inladen.</p>";
+    }
+  };
+}
+
+if (btnCloseReleases) {
+  btnCloseReleases.onclick = () => modalReleaseNotes.close();
+}
+
+function renderReleaseNotes(releases) {
+  releaseNotesContainer.innerHTML = "";
+  releases.forEach((rel) => {
+    const box = document.createElement("div");
+    box.className = "release-entry";
+    
+    const changesHtml = rel.changes
+      .map((change) => `<li>${escapeHtml(change)}</li>`)
+      .join("");
+
+    box.innerHTML = `
+      <div class="release-header">
+        <span class="release-version">${escapeHtml(rel.version)}</span>
+        <span class="release-date">${escapeHtml(rel.date)}</span>
+      </div>
+      <ul class="release-list">
+        ${changesHtml}
+      </ul>
+    `;
+    releaseNotesContainer.appendChild(box);
+  });
+}
+
 
 // --- 3. URL OPSCHONING HELPER ---
 function cleanWebUrl(rawUrl) {
@@ -136,14 +185,12 @@ function cleanWebUrl(rawUrl) {
   let urlStr = rawUrl.trim();
   if (!urlStr) return null;
 
-  // Voeg https:// toe als er nog geen protocol voor staat
   if (!/^https?:\/\//i.test(urlStr)) {
     urlStr = "https://" + urlStr;
   }
 
   try {
     const parsed = new URL(urlStr);
-    // Verwijder veelvoorkomende tracking tags (affiliate/social/analytics)
     const trackingParams = [
       "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", 
       "fbclid", "gclid", "ref", "ref_", "tag"
@@ -163,12 +210,14 @@ onAuthStateChanged(auth, async (user) => {
 
   if (isCurrentUserAdmin) {
     btnLogout.classList.remove("hidden");
+    if (adminFooter) adminFooter.classList.remove("hidden");
     btnLogout.onclick = async () => {
       await signOut(auth);
       window.location.reload();
     };
   } else {
     btnLogout.classList.add("hidden");
+    if (adminFooter) adminFooter.classList.add("hidden");
   }
 
   if (listId) {
@@ -468,7 +517,7 @@ function startDataListeners() {
   unsubscribeItems = onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
     cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 
-    // Sorteren op ingestelde volgorde
+    // Sorteren op order
     cachedItems.sort((a, b) => {
       const orderA = a.order !== undefined ? a.order : 9999;
       const orderB = b.order !== undefined ? b.order : 9999;
@@ -576,7 +625,6 @@ function renderItems() {
       attachDragEvents(li, cachedItems, renderItems, saveNewItemOrder);
 
     } else {
-      // Familie / Koper interface
       if (!isClaimed) {
         const btnClaim = document.createElement("button");
         btnClaim.className = "btn btn-primary full-width";
@@ -617,19 +665,16 @@ function triggerClaimConfirmation(item) {
   pendingClaimItemId = item.id;
 
   if (!currentBuyerName) {
-    // Vraag eerst wie de koper is
     modalBuyerTitle.textContent = "Wie ben je?";
     btnCancelBuyerName.classList.add("hidden");
     inputBuyerName.value = "";
     modalBuyerName.showModal();
   } else {
-    // Toon de vriendelijke bevestigingsmodal
     confirmClaimText.textContent = `Weet je zeker dat je "${item.title}" wilt reserveren?`;
     modalConfirmClaim.showModal();
   }
 }
 
-// Bevestigingsknop afhandeling
 btnCancelConfirmClaim.onclick = () => {
   modalConfirmClaim.close();
   pendingClaimItemId = null;
@@ -644,7 +689,6 @@ formConfirmClaim.onsubmit = async (e) => {
   }
 };
 
-// Naam opslaan formulier
 if (formBuyerName) {
   formBuyerName.onsubmit = async (e) => {
     e.preventDefault();
@@ -656,7 +700,6 @@ if (formBuyerName) {
     localStorage.setItem("buyer_name", currentBuyerName);
     modalBuyerName.close();
 
-    // Werk eventuele eerdere claims van deze koper bij
     if (oldName && oldName !== newName) {
       Object.keys(cachedClaims).forEach(async (id) => {
         if (cachedClaims[id].claimedBy === oldName) {
@@ -665,7 +708,6 @@ if (formBuyerName) {
       });
     }
 
-    // Als er een claim klaarstond, vraag alsnog bevestiging
     if (pendingClaimItemId) {
       const item = cachedItems.find((i) => i.id === pendingClaimItemId);
       if (item) {
