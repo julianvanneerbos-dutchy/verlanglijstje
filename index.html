@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verlanglijstje</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" class="container">
+    <header class="header">
+      <h1 id="list-title">Verlanglijstje</h1>
+      <div id="user-badge" class="badge hidden"></div>
+    </header>
+
+    <!-- Beheerder Info & Deelkaart (Alleen zichtbaar voor Admin) -->
+    <section id="admin-panel" class="card hidden">
+      <div class="share-box">
+        <div>
+          <span class="label">Koperscode voor familie:</span>
+          <strong id="display-buyer-pin" class="pin-code">----</strong>
+        </div>
+        <button id="btn-share" class="btn btn-primary">🔗 Deel link via WhatsApp</button>
+      </div>
+      <button id="btn-open-add-modal" class="btn btn-secondary full-width">+ Cadeau toevoegen</button>
+    </section>
+
+    <!-- Koper Statusbanner (Alleen zichtbaar voor Familie) -->
+    <section id="buyer-panel" class="status-banner hidden">
+      <p id="buyer-status-text">Lijst laden...</p>
+    </section>
+
+    <!-- Cadeaulijst -->
+    <main>
+      <ul id="items-list" class="item-list"></ul>
+    </main>
+
+    <!-- Modal: Cadeau toevoegen (Admin) -->
+    <dialog id="modal-add-item">
+      <form id="form-add-item" method="dialog">
+        <h3>Nieuw cadeau</h3>
+        <label for="item-title">Wat wil je vragen? *</label>
+        <input type="text" id="item-title" required placeholder="bijv. Lego Ruimteschip">
+
+        <label for="item-url">Link naar webshop</label>
+        <input type="url" id="item-url" placeholder="https://bol.com/...">
+
+        <label for="item-price">Richtprijs (€)</label>
+        <input type="number" id="item-price" step="0.01" placeholder="25.00">
+
+        <label for="item-notes">Notities</label>
+        <textarea id="item-notes" rows="2" placeholder="Kleur, maat of voorkeur..."></textarea>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-close-modal" class="btn btn-text">Annuleren</button>
+          <button type="submit" class="btn btn-primary">Opslaan</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Modal: Naam vragen bij eerste claim (Koper) -->
+    <dialog id="modal-buyer-name">
+      <form id="form-buyer-name" method="dialog">
+        <h3>Wie ben je?</h3>
+        <p>Vul je naam of rol in (bijv. Oma of Tante Els) zodat anderen zien wat al gekocht is.</p>
+        <input type="text" id="input-buyer-name" required placeholder="Jouw naam">
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Bevestigen & Claimen</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
