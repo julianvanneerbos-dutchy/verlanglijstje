@@ -53,12 +53,10 @@ body {
   gap: 1.25rem;
 }
 
-/* Header */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 0.25rem;
 }
 
 .header h1 {
@@ -74,7 +72,6 @@ body {
   align-items: center;
 }
 
-/* Algemene Kaart (Card) */
 .card {
   background: var(--surface);
   padding: 1.25rem;
@@ -95,7 +92,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Status Banner */
 .status-banner {
   background: var(--primary-light);
   border: 1px solid #c7d2fe;
@@ -112,7 +108,6 @@ body {
   color: var(--primary-text);
 }
 
-/* Share & PIN sectie */
 .share-box {
   display: flex;
   justify-content: space-between;
@@ -134,7 +129,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Toggle Switch */
 .toggle-container {
   display: flex;
   align-items: center;
@@ -195,7 +189,6 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
-/* Cadeaulijst & Lijstjes Overzicht */
 .item-list {
   list-style: none;
   display: flex;
@@ -213,20 +206,29 @@ input:checked + .slider:before {
   gap: 0.6rem;
   box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
 }
 
 .item-card:hover {
   box-shadow: var(--shadow-md);
 }
 
-/* Status: Claimed / Gekozen */
 .item-card.claimed {
   background: var(--success-bg);
   border-color: #a7f3d0;
   border-left: 5px solid var(--success-border);
 }
 
-/* Drag & Drop lijstjes */
+.item-card.dragging {
+  opacity: 0.35;
+  transform: scale(0.98);
+}
+
+.item-card.drag-over {
+  border-top: 3px solid var(--primary);
+}
+
+/* Drag handle & flex rows */
 .list-row {
   display: flex;
   justify-content: space-between;
@@ -244,12 +246,14 @@ input:checked + .slider:before {
 .drag-handle {
   cursor: grab;
   user-select: none;
-  font-size: 1.25rem;
   color: #94a3b8;
-  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
   border-radius: var(--radius-sm);
   touch-action: none;
-  transition: background 0.15s;
+  transition: all 0.15s;
 }
 
 .drag-handle:hover {
@@ -260,23 +264,20 @@ input:checked + .slider:before {
 .list-actions {
   display: flex;
   gap: 0.25rem;
+  align-items: center;
 }
 
-.item-card.dragging {
-  opacity: 0.35;
-  transform: scale(0.98);
-}
-
-.item-card.drag-over {
-  border-top: 3px solid var(--primary);
-}
-
-/* Item details */
 .item-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.5rem;
+}
+
+.item-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .item-title {
@@ -339,7 +340,7 @@ input:checked + .slider:before {
   margin-top: 0.25rem;
 }
 
-/* Knoppen */
+/* Knoppen & Icon buttons */
 .btn {
   display: inline-flex;
   justify-content: center;
@@ -361,6 +362,29 @@ input:checked + .slider:before {
   border-radius: var(--radius-sm);
 }
 
+.btn-icon {
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.btn-icon.btn-danger:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
 .btn-primary {
   background: var(--primary);
   color: #ffffff;
@@ -370,10 +394,6 @@ input:checked + .slider:before {
 .btn-primary:hover {
   background: var(--primary-hover);
   box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
-}
-
-.btn-primary:active {
-  transform: translateY(1px);
 }
 
 .btn-secondary {
@@ -399,10 +419,6 @@ input:checked + .slider:before {
 .btn-danger {
   color: var(--danger);
   background: transparent;
-}
-
-.btn-danger:hover {
-  background: var(--danger-light);
 }
 
 .full-width {
