@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verlanglijstje</title>
+  <!-- Inline SVG favicon om de 404 consolefout te voorkomen -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -38,13 +40,13 @@
         <button id="btn-share" class="btn btn-primary">🔗 Lijst delen</button>
       </div>
 
-      <!-- Toggle: Wie geeft wat tonen / verbergen -->
+      <!-- Toggle: Wie geeft wat tonen / verbergen (Standaard UIT) -->
       <div class="toggle-container">
         <label class="toggle-switch">
-          <input type="checkbox" id="toggle-show-names" checked>
+          <input type="checkbox" id="toggle-show-names">
           <span class="slider"></span>
         </label>
-        <label for="toggle-show-names" class="toggle-label">Toon namen van wie wat geeft</label>
+        <label for="toggle-show-names" class="toggle-label">Toon wie welk cadeau geeft</label>
       </div>
 
       <button id="btn-open-add-modal" class="btn btn-secondary full-width" style="margin-top: 0.75rem;">+ Cadeau toevoegen</button>
