@@ -66,8 +66,8 @@
         <p id="buyer-status-text">Lijst laden...</p>
         <button id="btn-change-buyer-name" class="btn btn-text btn-small">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-            <path d="m15 5 4 4"/>
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
           Mijn naam wijzigen
         </button>
@@ -87,7 +87,7 @@
     </footer>
 
     <!-- Modal: Release Notes -->
-    <dialog id="modal-release-notes" class="modal-large">
+    <dialog id="modal-release-notes">
       <div class="modal-header">
         <h3>Wat is er nieuw?</h3>
       </div>
@@ -189,10 +189,10 @@
       <form id="form-confirm-claim" method="dialog">
         <h3>Cadeau reserveren</h3>
         <p id="confirm-claim-text" style="font-size: 0.95rem; color: var(--text);">Weet je zeker dat je dit cadeau wilt reserveren?</p>
-        <p class="label">Anderen zien dan dat dit cadeau al gekocht wordt.</p>
+        <p class="label">Anderen zien dan dat dit cadeau al gekozen is.</p>
         <div class="modal-actions">
           <button type="button" id="btn-cancel-confirm-claim" class="btn btn-text">Annuleren</button>
-          <button type="submit" class="btn btn-primary">Ja, ik koop dit!</button>
+          <button type="submit" class="btn btn-primary">Ja, dit geef ik!</button>
         </div>
       </form>
     </dialog>
@@ -201,7 +201,7 @@
     <dialog id="modal-buyer-name">
       <form id="form-buyer-name" method="dialog">
         <h3 id="modal-buyer-title">Wie ben je?</h3>
-        <p>Vul je naam of rol in (bijv. Oma of Tante Els) zodat anderen zien wat al gekocht is.</p>
+        <p>Vul je naam of rol in (bijv. Oma of Tante Els) zodat anderen zien wat al gekozen is.</p>
         <input type="text" id="input-buyer-name" required placeholder="Jouw naam">
         <div class="modal-actions">
           <button type="button" id="btn-cancel-buyer-name" class="btn btn-text hidden">Annuleren</button>
