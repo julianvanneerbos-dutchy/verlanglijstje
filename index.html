@@ -10,33 +10,39 @@
   <div id="app" class="container">
     <header class="header">
       <h1 id="list-title">Verlanglijstje</h1>
-      <div id="user-badge" class="badge hidden"></div>
+      <button id="btn-back-overview" class="btn btn-text hidden">← Terug naar overzicht</button>
     </header>
 
     <!-- 1. Startscherm / Overzicht van alle lijstjes -->
     <section id="lists-overview-panel" class="card hidden">
-      <h2>Mijn Verlanglijstjes</h2>
+      <div class="panel-header">
+        <h2>Mijn Verlanglijstjes</h2>
+        <span class="label">Houd vast en sleep om te sorteren</span>
+      </div>
       <ul id="all-lists-container" class="item-list" style="margin-top: 1rem;"></ul>
       <button id="btn-create-new-list" class="btn btn-primary full-width" style="margin-top: 1rem;">
         + Nieuw verlanglijstje maken
       </button>
     </section>
 
-    <!-- 2. Beheerder Paneel (Alleen zichtbaar als ?admin=true&list=...) -->
+    <!-- 2. Beheerder Paneel (Alleen als ?admin=true&list=...) -->
     <section id="admin-panel" class="card hidden">
       <div class="share-box">
         <div>
           <span class="label">Koperscode voor familie:</span>
           <strong id="display-buyer-pin" class="pin-code">----</strong>
         </div>
-        <button id="btn-share" class="btn btn-primary">🔗 Deel link via WhatsApp</button>
+        <button id="btn-share" class="btn btn-primary">🔗 Lijst delen</button>
       </div>
       <button id="btn-open-add-modal" class="btn btn-secondary full-width">+ Cadeau toevoegen</button>
     </section>
 
-    <!-- 3. Koper Statusbanner (Alleen zichtbaar voor familie) -->
+    <!-- 3. Koper Statusbanner (Alleen voor familie) -->
     <section id="buyer-panel" class="status-banner hidden">
-      <p id="buyer-status-text">Lijst laden...</p>
+      <div class="buyer-banner-content">
+        <p id="buyer-status-text">Lijst laden...</p>
+        <button id="btn-change-buyer-name" class="btn btn-text btn-small">✏️ Mijn naam wijzigen</button>
+      </div>
     </section>
 
     <!-- 4. Cadeaulijst -->
@@ -53,6 +59,19 @@
         <div class="modal-actions">
           <button type="button" id="btn-cancel-list" class="btn btn-text">Annuleren</button>
           <button type="submit" class="btn btn-primary">Aanmaken</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Modal: Lijst bewerken (Admin) -->
+    <dialog id="modal-edit-list">
+      <form id="form-edit-list" method="dialog">
+        <h3>Lijstnaam aanpassen</h3>
+        <label for="edit-list-title">Nieuwe titel *</label>
+        <input type="text" id="edit-list-title" required>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-edit-list" class="btn btn-text">Annuleren</button>
+          <button type="submit" class="btn btn-primary">Opslaan</button>
         </div>
       </form>
     </dialog>
@@ -80,14 +99,15 @@
       </form>
     </dialog>
 
-    <!-- Modal: Naam vragen bij eerste claim (Koper) -->
+    <!-- Modal: Naam opgeven / wijzigen (Koper) -->
     <dialog id="modal-buyer-name">
       <form id="form-buyer-name" method="dialog">
-        <h3>Wie ben je?</h3>
+        <h3 id="modal-buyer-title">Wie ben je?</h3>
         <p>Vul je naam of rol in (bijv. Oma of Tante Els) zodat anderen zien wat al gekocht is.</p>
         <input type="text" id="input-buyer-name" required placeholder="Jouw naam">
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Bevestigen & Claimen</button>
+          <button type="button" id="btn-cancel-buyer-name" class="btn btn-text hidden">Annuleren</button>
+          <button type="submit" class="btn btn-primary">Opslaan</button>
         </div>
       </form>
     </dialog>
