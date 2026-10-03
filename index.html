@@ -4,8 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verlanglijstje</title>
-  <!-- Inline SVG favicon om de 404 consolefout te voorkomen -->
+  
+  <!-- PWA & Favicon -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Verlanglijst">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
+  
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -56,16 +63,14 @@
     <section id="buyer-panel" class="status-banner hidden">
       <div class="buyer-banner-content">
         <p id="buyer-status-text">Lijst laden...</p>
-          <button id="btn-change-buyer-name" class="btn btn-text btn-small">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-              <path d="m15 5 4 4"/>
-            </svg>
-            Mijn naam wijzigen
-          </button>      
+        <button id="btn-change-buyer-name" class="btn btn-text btn-small">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            <path d="m15 5 4 4"/>
+          </svg>
+          Mijn naam wijzigen
+        </button>
       </div>
-
-      
     </section>
 
     <!-- 4. Cadeaulijst -->
@@ -120,7 +125,8 @@
         <input type="text" id="item-title" required placeholder="bijv. Lego Ruimteschip">
 
         <label for="item-url">Link naar webshop</label>
-        <input type="url" id="item-url" placeholder="https://bol.com/...">
+        <!-- type="text" zodat links zoals bol.com/... zonder https direct werken -->
+        <input type="text" id="item-url" placeholder="bijv. bol.com/... of https://...">
 
         <label for="item-price">Richtprijs (€)</label>
         <input type="number" id="item-price" step="0.01" placeholder="25.00">
@@ -143,7 +149,7 @@
         <input type="text" id="edit-item-title" required>
 
         <label for="edit-item-url">Link naar webshop</label>
-        <input type="url" id="edit-item-url">
+        <input type="text" id="edit-item-url" placeholder="bijv. bol.com/... of https://...">
 
         <label for="edit-item-price">Richtprijs (€)</label>
         <input type="number" id="edit-item-price" step="0.01">
@@ -154,6 +160,19 @@
         <div class="modal-actions">
           <button type="button" id="btn-cancel-edit-item" class="btn btn-text">Annuleren</button>
           <button type="submit" class="btn btn-primary">Opslaan</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Modal: Bevestiging bij Reserveren (Koper) -->
+    <dialog id="modal-confirm-claim">
+      <form id="form-confirm-claim" method="dialog">
+        <h3>Cadeau reserveren</h3>
+        <p id="confirm-claim-text" style="font-size: 0.95rem; color: var(--text);">Weet je zeker dat je dit cadeau wilt kopen?</p>
+        <p class="label">Anderen zien dan dat dit cadeau al gekocht wordt.</p>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-confirm-claim" class="btn btn-text">Annuleren</button>
+          <button type="submit" class="btn btn-primary">Ja, ik koop dit!</button>
         </div>
       </form>
     </dialog>
