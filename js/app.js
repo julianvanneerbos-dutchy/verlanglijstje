@@ -10,12 +10,23 @@ import {
   serverTimestamp,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  signInAnonymously, 
+  signOut,
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-// --- 1. PARAMETERS & STATE ---
+// --- 1. CONFIGURATIE & AUTH SETUP ---
+const auth = getAuth();
+// Zorg dat dit e-mailadres exact matcht met de gebruiker in Firebase Authentication & Firestore Rules:
+const ADMIN_EMAIL = "beheer@verlanglijst.nl"; 
+
 const urlParams = new URLSearchParams(window.location.search);
 const listId = urlParams.get("list");
-const isAdmin = urlParams.get("admin") === "true";
 
+let isCurrentUserAdmin = false;
 let currentBuyerName = localStorage.getItem("buyer_name") || "";
 let currentListBuyerPin = "";
 let cachedItems = [];
@@ -27,8 +38,16 @@ let editingListId = null;
 // DOM Elementen
 const listTitleEl = document.getElementById("list-title");
 const btnBackOverview = document.getElementById("btn-back-overview");
+const btnLogout = document.getElementById("btn-logout");
 const itemsListEl = document.getElementById("items-list");
 
+// Login Modal
+const modalAdminLogin = document.getElementById("modal-admin-login");
+const formAdminLogin = document.getElementById("form-admin-login");
+const inputAdminPin = document.getElementById("input-admin-pin");
+const loginError = document.getElementById("login-error");
+
+// Dashboard elementen
 const listsOverviewPanel = document.getElementById("lists-overview-panel");
 const allListsContainer = document.getElementById("all-lists-container");
 const btnCreateNewList = document.getElementById("btn-create-new-list");
@@ -36,11 +55,13 @@ const modalCreateList = document.getElementById("modal-create-list");
 const formCreateList = document.getElementById("form-create-list");
 const btnCancelList = document.getElementById("btn-cancel-list");
 
+// Bewerk modal
 const modalEditList = document.getElementById("modal-edit-list");
 const formEditList = document.getElementById("form-edit-list");
 const editListTitleInput = document.getElementById("edit-list-title");
 const btnCancelEditList = document.getElementById("btn-cancel-edit-list");
 
+// Panelen
 const adminPanel = document.getElementById("admin-panel");
 const buyerPanel = document.getElementById("buyer-panel");
 const buyerStatusText = document.getElementById("buyer-status-text");
@@ -48,11 +69,13 @@ const btnChangeBuyerName = document.getElementById("btn-change-buyer-name");
 const displayBuyerPin = document.getElementById("display-buyer-pin");
 const btnShare = document.getElementById("btn-share");
 
+// Cadeau modal
 const modalAdd = document.getElementById("modal-add-item");
 const btnOpenAddModal = document.getElementById("btn-open-add-modal");
 const btnCloseModal = document.getElementById("btn-close-modal");
 const formAddItem = document.getElementById("form-add-item");
 
+// Koper modal
 const modalBuyerName = document.getElementById("modal-buyer-name");
 const modalBuyerTitle = document.getElementById("modal-buyer-title");
 const formBuyerName = document.getElementById("form-buyer-name");
@@ -60,23 +83,70 @@ const inputBuyerName = document.getElementById("input-buyer-name");
 const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
 
 
-// --- 2. ROUTERING ---
-if (!listId) {
-  renderDashboard();
-} else {
-  renderListDetail();
+// --- 2. AUTHENTICATION FLOW & INITIALISATIE ---
+onAuthStateChanged(auth, async (user) => {
+  isCurrentUserAdmin = user && user.email === ADMIN_EMAIL;
+
+  if (isCurrentUserAdmin) {
+    btnLogout.classList.remove("hidden");
+    btnLogout.onclick = async () => {
+      await signOut(auth);
+      window.location.reload();
+    };
+  } else {
+    btnLogout.classList.add("hidden");
+  }
+
+  if (listId) {
+    // Familie/Koper route: indien nog niet ingelogd, log geruisloos anoniem in voor Firestore toegang
+    if (!user) {
+      try {
+        await signInAnonymously(auth);
+      } catch (err) {
+        console.error("Anoniem inloggen mislukt:", err);
+      }
+    }
+    renderListDetail();
+  } else {
+    // Dashboard route: alleen voor admin
+    if (isCurrentUserAdmin) {
+      if (modalAdminLogin.open) modalAdminLogin.close();
+      renderDashboard();
+    } else {
+      // Vraag direct om de beheerder-pincode
+      showAdminLoginModal();
+    }
+  }
+});
+
+function showAdminLoginModal() {
+  modalAdminLogin.showModal();
+
+  formAdminLogin.onsubmit = async (e) => {
+    e.preventDefault();
+    loginError.style.display = "none";
+    const pin = inputAdminPin.value.trim();
+
+    try {
+      await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pin);
+      modalAdminLogin.close();
+      inputAdminPin.value = "";
+    } catch (err) {
+      loginError.style.display = "block";
+      inputAdminPin.value = "";
+    }
+  };
 }
 
 
 // ==========================================
-// SCENARIO A: DASHBOARD (Lijstenoverzicht)
+// SCENARIO A: DASHBOARD (Alleen Beheerder)
 // ==========================================
 function renderDashboard() {
   if (listsOverviewPanel) listsOverviewPanel.classList.remove("hidden");
   listTitleEl.textContent = "Mijn Verlanglijstjes";
   btnBackOverview.classList.add("hidden");
 
-  // Realtime ophalen en lokaal sorteren op veld 'order' (of fallback naar createdAt)
   onSnapshot(collection(db, "lists"), (snapshot) => {
     cachedLists = snapshot.docs.map(docSnap => ({
       id: docSnap.id,
@@ -92,7 +162,6 @@ function renderDashboard() {
     renderListsCards();
   });
 
-  // Aanmaken modal
   btnCreateNewList.onclick = () => modalCreateList.showModal();
   btnCancelList.onclick = () => modalCreateList.close();
 
@@ -112,10 +181,9 @@ function renderDashboard() {
     });
 
     modalCreateList.close();
-    window.location.search = `?admin=true&list=${docRef.id}`;
+    window.location.search = `?list=${docRef.id}`;
   };
 
-  // Bewerken modal
   btnCancelEditList.onclick = () => modalEditList.close();
   formEditList.onsubmit = async (e) => {
     e.preventDefault();
@@ -158,12 +226,10 @@ function renderListsCards() {
       </div>
     `;
 
-    // Klikken op de lijst opent de beheerweergave
     li.querySelector(".list-row-main").onclick = () => {
-      window.location.search = `?admin=true&list=${item.id}`;
+      window.location.search = `?list=${item.id}`;
     };
 
-    // Lijstnaam bewerken
     li.querySelector(".btn-edit").onclick = (e) => {
       e.stopPropagation();
       editingListId = item.id;
@@ -171,23 +237,19 @@ function renderListsCards() {
       modalEditList.showModal();
     };
 
-    // Lijst verwijderen
     li.querySelector(".btn-delete").onclick = async (e) => {
       e.stopPropagation();
-      const confirmDelete = confirm(`Weet je zeker dat je het lijstje "${item.title}" wilt verwijderen?`);
-      if (confirmDelete) {
+      if (confirm(`Weet je zeker dat je "${item.title}" wilt verwijderen?`)) {
         await deleteDoc(doc(db, "lists", item.id));
       }
     };
 
-    // Drag and Drop (muis) + Touch ondersteuning
     attachDragEvents(li);
-
     allListsContainer.appendChild(li);
   });
 }
 
-// Reordering logica met Firestore batch update
+// Drag & Drop
 let draggedEl = null;
 
 function attachDragEvents(li) {
@@ -205,14 +267,10 @@ function attachDragEvents(li) {
 
   li.ondragover = (e) => {
     e.preventDefault();
-    if (draggedEl && draggedEl !== li) {
-      li.classList.add("drag-over");
-    }
+    if (draggedEl && draggedEl !== li) li.classList.add("drag-over");
   };
 
-  li.ondragleave = () => {
-    li.classList.remove("drag-over");
-  };
+  li.ondragleave = () => li.classList.remove("drag-over");
 
   li.ondrop = async (e) => {
     e.preventDefault();
@@ -229,23 +287,16 @@ function attachDragEvents(li) {
     await saveNewListOrder();
   };
 
-  // Touch ondersteuning via drag-handle
   const handle = li.querySelector(".drag-handle");
-  let touchStartY = 0;
-
-  handle.addEventListener("touchstart", (e) => {
-    touchStartY = e.touches[0].clientY;
+  handle.addEventListener("touchstart", () => {
     draggedEl = li;
     li.classList.add("dragging");
   }, { passive: true });
 
   handle.addEventListener("touchmove", (e) => {
-    const currentY = e.touches[0].clientY;
-    const targetEl = document.elementFromPoint(e.touches[0].clientX, currentY)?.closest(".item-card");
+    const targetEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)?.closest(".item-card");
     document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
-    if (targetEl && targetEl !== draggedEl) {
-      targetEl.classList.add("drag-over");
-    }
+    if (targetEl && targetEl !== draggedEl) targetEl.classList.add("drag-over");
   }, { passive: true });
 
   handle.addEventListener("touchend", async (e) => {
@@ -270,8 +321,7 @@ function attachDragEvents(li) {
 async function saveNewListOrder() {
   const batch = writeBatch(db);
   cachedLists.forEach((list, index) => {
-    const ref = doc(db, "lists", list.id);
-    batch.update(ref, { order: index });
+    batch.update(doc(db, "lists", list.id), { order: index });
   });
   await batch.commit();
 }
@@ -281,30 +331,13 @@ async function saveNewListOrder() {
 // SCENARIO B: LIJSTWEERGAVE (Cadeaus & Claims)
 // ===================================================
 function renderListDetail() {
-  btnBackOverview.classList.remove("hidden");
-  btnBackOverview.onclick = () => {
-    window.location.search = "";
-  };
-
-  // 1. Luister naar metadata
-  onSnapshot(doc(db, "lists", listId), (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      listTitleEl.textContent = data.title || "Verlanglijstje";
-      currentListBuyerPin = data.buyerPin || "";
-      if (isAdmin && displayBuyerPin) {
-        displayBuyerPin.textContent = currentListBuyerPin;
-      }
-    } else {
-      listTitleEl.textContent = "Lijst niet gevonden";
-    }
-  });
-
-  // 2. Beheerder weergave inrichten
-  if (isAdmin) {
+  // Beheerder-specifieke knoppen
+  if (isCurrentUserAdmin) {
+    btnBackOverview.classList.remove("hidden");
+    btnBackOverview.onclick = () => { window.location.search = ""; };
     adminPanel.classList.remove("hidden");
+    buyerPanel.classList.add("hidden");
 
-    // Deelknop: 1x nette tekst zonder dubbele url
     btnShare.onclick = () => {
       const shareUrl = `${window.location.origin}${window.location.pathname}?list=${listId}&pin=${currentListBuyerPin}`;
       const shareText = `Bekijk mijn verlanglijstje en reserveer cadeaus: ${shareUrl}`;
@@ -340,8 +373,11 @@ function renderListDetail() {
       formAddItem.reset();
       modalAdd.close();
     };
+
   } else {
     // Familie weergave
+    btnBackOverview.classList.add("hidden");
+    adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
 
     btnChangeBuyerName.onclick = () => {
@@ -350,27 +386,39 @@ function renderListDetail() {
       btnCancelBuyerName.classList.remove("hidden");
       modalBuyerName.showModal();
     };
-
     btnCancelBuyerName.onclick = () => modalBuyerName.close();
   }
 
-  // 3. Realtime luisteren naar items
+  // Luister naar lijstmetadata
+  onSnapshot(doc(db, "lists", listId), (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      listTitleEl.textContent = data.title || "Verlanglijstje";
+      currentListBuyerPin = data.buyerPin || "";
+      if (isCurrentUserAdmin && displayBuyerPin) {
+        displayBuyerPin.textContent = currentListBuyerPin;
+      }
+    } else {
+      listTitleEl.textContent = "Lijst niet gevonden";
+    }
+  });
+
+  // Luister naar items
   onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
-    cachedItems = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     renderItems();
   });
 
-  // 4. Realtime luisteren naar claims (zowel voor Koper als Admin!)
+  // Luister naar claims
   onSnapshot(collection(db, "lists", listId, "claims"), (snapshot) => {
     cachedClaims = {};
-    snapshot.docs.forEach((docSnap) => {
+    snapshot.docs.forEach(docSnap => {
       cachedClaims[docSnap.id] = docSnap.data();
     });
     renderItems();
   });
 }
 
-// Cadeaus renderen
 function renderItems() {
   itemsListEl.innerHTML = "";
 
@@ -378,7 +426,7 @@ function renderItems() {
   const claimedCount = Object.keys(cachedClaims).length;
   const availableCount = Math.max(0, totalCount - claimedCount);
 
-  if (!isAdmin && buyerStatusText) {
+  if (!isCurrentUserAdmin && buyerStatusText) {
     const greeting = currentBuyerName ? `Hoi ${escapeHtml(currentBuyerName)}! ` : "";
     buyerStatusText.textContent = `${greeting}${availableCount} van de ${totalCount} cadeaus nog beschikbaar`;
   }
@@ -403,8 +451,7 @@ function renderItems() {
 
     const actionsContainer = li.querySelector(".item-actions");
 
-    if (isAdmin) {
-      // Admin: Ziet duidelijk of het gekozen is en door wie
+    if (isCurrentUserAdmin) {
       if (isClaimed) {
         const badge = document.createElement("div");
         badge.className = "claim-badge-admin";
@@ -425,7 +472,6 @@ function renderItems() {
       actionsContainer.appendChild(btnDelete);
 
     } else {
-      // Koper weergave
       if (!isClaimed) {
         const btnClaim = document.createElement("button");
         btnClaim.className = "btn btn-primary full-width";
@@ -452,7 +498,6 @@ function renderItems() {
   });
 }
 
-// Naam opslaan & claims toewijzen
 function handleClaimClick(itemId) {
   if (!currentBuyerName) {
     pendingClaimItemId = itemId;
@@ -476,13 +521,10 @@ if (formBuyerName) {
     localStorage.setItem("buyer_name", currentBuyerName);
     modalBuyerName.close();
 
-    // Als de naam aangepast is, werk direct alle bestaande claims van deze gebruiker bij
     if (oldName && oldName !== newName) {
       Object.keys(cachedClaims).forEach(async (id) => {
         if (cachedClaims[id].claimedBy === oldName) {
-          await updateDoc(doc(db, "lists", listId, "claims", id), {
-            claimedBy: newName
-          });
+          await updateDoc(doc(db, "lists", listId, "claims", id), { claimedBy: newName });
         }
       });
     }
