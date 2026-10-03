@@ -18,7 +18,14 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-// --- 1. CONFIGURATIE & STATE ---
+// --- 1. MODERNE SVG ICONEN ---
+const ICONS = {
+  drag: `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Sleep om te sorteren"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
+  edit: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`,
+  trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`
+};
+
+// --- 2. CONFIGURATIE & STATE ---
 const auth = getAuth();
 const ADMIN_EMAIL = "julian.vanneerbos@gmail.com";
 
@@ -28,8 +35,7 @@ const buyerPinFromUrl = urlParams.get("pin");
 
 let isCurrentUserAdmin = false;
 let currentBuyerName = localStorage.getItem("buyer_name") || "";
-// Standaard UIT (false) tenzij expliciet op true gezet door gebruiker
-let showGiverNames = localStorage.getItem("show_giver_names") === "true";
+let showGiverNames = localStorage.getItem("show_giver_names") === "true"; // Standaard UIT
 let currentListBuyerPin = "";
 let cachedItems = [];
 let cachedClaims = {};
@@ -109,7 +115,7 @@ if (toggleShowNames) {
 }
 
 
-// --- 2. AUTHENTICATION & ROUTERING ---
+// --- 3. AUTHENTICATION & ROUTERING ---
 onAuthStateChanged(auth, async (user) => {
   const urlHasPin = urlParams.has("pin");
   isCurrentUserAdmin = !!(user && user.email === ADMIN_EMAIL && !urlHasPin);
@@ -241,15 +247,15 @@ function renderListsCards() {
     li.innerHTML = `
       <div class="list-row">
         <div class="list-row-main">
-          <span class="drag-handle" title="Sleep om te sorteren">☰</span>
+          ${ICONS.drag}
           <div>
             <strong class="item-title">${escapeHtml(item.title || "Naamloos")}</strong>
             <span class="label" style="display: block;">PIN: ${item.buyerPin || "----"}</span>
           </div>
         </div>
         <div class="list-actions">
-          <button class="btn btn-text btn-edit" title="Lijstnaam bewerken">✏️</button>
-          <button class="btn btn-danger btn-delete" title="Lijst verwijderen">🗑️️</button>
+          <button class="btn-icon btn-edit" title="Lijstnaam bewerken">${ICONS.edit}</button>
+          <button class="btn-icon btn-danger btn-delete" title="Lijst verwijderen">${ICONS.trash}</button>
         </div>
       </div>
     `;
@@ -272,83 +278,8 @@ function renderListsCards() {
       }
     };
 
-    attachDragEvents(li);
+    attachDragEvents(li, cachedLists, renderListsCards, saveNewListOrder);
     allListsContainer.appendChild(li);
-  });
-}
-
-// Drag & Drop (Muis + Touch)
-let draggedEl = null;
-
-function attachDragEvents(li) {
-  li.ondragstart = (e) => {
-    draggedEl = li;
-    li.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  li.ondragend = () => {
-    if (draggedEl) draggedEl.classList.remove("dragging");
-    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
-    draggedEl = null;
-  };
-
-  li.ondragover = (e) => {
-    e.preventDefault();
-    if (draggedEl && draggedEl !== li) {
-      li.classList.add("drag-over");
-    }
-  };
-
-  li.ondragleave = () => {
-    li.classList.remove("drag-over");
-  };
-
-  li.ondrop = async (e) => {
-    e.preventDefault();
-    li.classList.remove("drag-over");
-    if (!draggedEl || draggedEl === li) return;
-
-    const fromIndex = parseInt(draggedEl.dataset.index, 10);
-    const toIndex = parseInt(li.dataset.index, 10);
-
-    const movedItem = cachedLists.splice(fromIndex, 1)[0];
-    cachedLists.splice(toIndex, 0, movedItem);
-
-    renderListsCards();
-    await saveNewListOrder();
-  };
-
-  const handle = li.querySelector(".drag-handle");
-  handle.addEventListener("touchstart", () => {
-    draggedEl = li;
-    li.classList.add("dragging");
-  }, { passive: true });
-
-  handle.addEventListener("touchmove", (e) => {
-    const targetEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)?.closest(".item-card");
-    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
-    if (targetEl && targetEl !== draggedEl) {
-      targetEl.classList.add("drag-over");
-    }
-  }, { passive: true });
-
-  handle.addEventListener("touchend", async (e) => {
-    if (!draggedEl) return;
-    draggedEl.classList.remove("dragging");
-    const changedTouch = e.changedTouches[0];
-    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY)?.closest(".item-card");
-    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
-
-    if (targetEl && targetEl !== draggedEl) {
-      const fromIndex = parseInt(draggedEl.dataset.index, 10);
-      const toIndex = parseInt(targetEl.dataset.index, 10);
-      const movedItem = cachedLists.splice(fromIndex, 1)[0];
-      cachedLists.splice(toIndex, 0, movedItem);
-      renderListsCards();
-      await saveNewListOrder();
-    }
-    draggedEl = null;
   });
 }
 
@@ -385,7 +316,6 @@ function renderListDetail() {
       }
     };
 
-    // Cadeau toevoegen modal
     btnOpenAddModal.onclick = () => modalAdd.showModal();
     btnCloseModal.onclick = () => modalAdd.close();
 
@@ -398,11 +328,14 @@ function renderListDetail() {
 
       if (!title) return;
 
+      const newOrderIndex = cachedItems.length;
+
       await addDoc(collection(db, "lists", listId, "items"), {
         title,
         url: url || null,
         price: isNaN(price) ? null : price,
         notes: notes || null,
+        order: newOrderIndex,
         createdAt: serverTimestamp()
       });
 
@@ -410,7 +343,6 @@ function renderListDetail() {
       modalAdd.close();
     };
 
-    // Cadeau bewerken modal
     btnCancelEditItem.onclick = () => modalEditItem.close();
     formEditItem.onsubmit = async (e) => {
       e.preventDefault();
@@ -433,7 +365,6 @@ function renderListDetail() {
     };
 
   } else {
-    // Familie / Koper weergave
     btnBackOverview.classList.add("hidden");
     adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
@@ -447,7 +378,7 @@ function renderListDetail() {
     btnCancelBuyerName.onclick = () => modalBuyerName.close();
   }
 
-  // Metadata luisteren en PIN check
+  // Luister naar metadata & PIN check
   if (unsubscribeListMeta) unsubscribeListMeta();
   unsubscribeListMeta = onSnapshot(doc(db, "lists", listId), (docSnap) => {
     if (!docSnap.exists()) {
@@ -491,6 +422,14 @@ function startDataListeners() {
 
   unsubscribeItems = onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
     cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+    // Sorteren op order veld (fallback naar createdAt)
+    cachedItems.sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : 9999;
+      const orderB = b.order !== undefined ? b.order : 9999;
+      return orderA - orderB;
+    });
+
     renderItems();
   }, (err) => {
     console.error("Fout bij ophalen items:", err);
@@ -519,17 +458,26 @@ function renderItems() {
     buyerStatusText.textContent = `${greeting}${availableCount} van de ${totalCount} cadeaus nog beschikbaar`;
   }
 
-  cachedItems.forEach((item) => {
+  cachedItems.forEach((item, index) => {
     const claim = cachedClaims[item.id];
     const isClaimed = !!claim;
     const isClaimedByMe = isClaimed && claim.claimedBy === currentBuyerName;
 
     const li = document.createElement("li");
     li.className = `item-card ${isClaimed ? "claimed" : ""}`;
+    li.dataset.id = item.id;
+    li.dataset.index = index;
+
+    if (isCurrentUserAdmin) {
+      li.draggable = true;
+    }
 
     li.innerHTML = `
       <div class="item-header">
-        <span class="item-title">${escapeHtml(item.title)}</span>
+        <div class="item-title-wrap">
+          ${isCurrentUserAdmin ? ICONS.drag : ""}
+          <span class="item-title">${escapeHtml(item.title)}</span>
+        </div>
         ${item.price ? `<span class="item-price">€ ${item.price.toFixed(2)}</span>` : ""}
       </div>
       ${item.notes ? `<p class="item-notes">${escapeHtml(item.notes)}</p>` : ""}
@@ -544,7 +492,6 @@ function renderItems() {
         const badge = document.createElement("div");
         badge.className = "claim-badge-admin";
 
-        // Respecteer de toggle
         if (showGiverNames) {
           badge.textContent = `✓ Gekozen door: ${claim.claimedBy || "Onbekend"}`;
         } else {
@@ -559,10 +506,10 @@ function renderItems() {
         actionsContainer.appendChild(btnReset);
 
       } else {
-        // Alleen aanpassen als het cadeau nog openstaat
         const btnEdit = document.createElement("button");
-        btnEdit.className = "btn btn-text btn-small";
-        btnEdit.textContent = "✏️ Aanpassen";
+        btnEdit.className = "btn-icon btn-edit";
+        btnEdit.title = "Cadeau aanpassen";
+        btnEdit.innerHTML = ICONS.edit;
         btnEdit.onclick = () => {
           editingItemId = item.id;
           editItemTitle.value = item.title || "";
@@ -575,10 +522,14 @@ function renderItems() {
       }
 
       const btnDelete = document.createElement("button");
-      btnDelete.className = "btn btn-text btn-danger btn-small";
-      btnDelete.textContent = "🗑️ Verwijderen";
+      btnDelete.className = "btn-icon btn-danger btn-delete";
+      btnDelete.title = "Cadeau verwijderen";
+      btnDelete.innerHTML = ICONS.trash;
       btnDelete.onclick = () => deleteDoc(doc(db, "lists", listId, "items", item.id));
       actionsContainer.appendChild(btnDelete);
+
+      // Koppel drag & touch reordering voor cadeautjes
+      attachDragEvents(li, cachedItems, renderItems, saveNewItemOrder);
 
     } else {
       // Familie / Koper interface
@@ -606,6 +557,14 @@ function renderItems() {
 
     itemsListEl.appendChild(li);
   });
+}
+
+async function saveNewItemOrder() {
+  const batch = writeBatch(db);
+  cachedItems.forEach((item, index) => {
+    batch.update(doc(db, "lists", listId, "items", item.id), { order: index });
+  });
+  await batch.commit();
 }
 
 function handleClaimClick(itemId) {
@@ -652,6 +611,88 @@ async function executeClaim(itemId, name) {
   await setDoc(doc(db, "lists", listId, "claims", itemId), {
     claimedBy: name,
     claimedAt: serverTimestamp()
+  });
+}
+
+
+// ===================================================
+// GENERIEKE DRAG & TOUCH REORDERING
+// ===================================================
+let draggedEl = null;
+
+function attachDragEvents(li, arrayRef, renderCallback, saveCallback) {
+  // Muis events
+  li.ondragstart = (e) => {
+    draggedEl = li;
+    li.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  li.ondragend = () => {
+    if (draggedEl) draggedEl.classList.remove("dragging");
+    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
+    draggedEl = null;
+  };
+
+  li.ondragover = (e) => {
+    e.preventDefault();
+    if (draggedEl && draggedEl !== li) {
+      li.classList.add("drag-over");
+    }
+  };
+
+  li.ondragleave = () => {
+    li.classList.remove("drag-over");
+  };
+
+  li.ondrop = async (e) => {
+    e.preventDefault();
+    li.classList.remove("drag-over");
+    if (!draggedEl || draggedEl === li) return;
+
+    const fromIndex = parseInt(draggedEl.dataset.index, 10);
+    const toIndex = parseInt(li.dataset.index, 10);
+
+    const movedItem = arrayRef.splice(fromIndex, 1)[0];
+    arrayRef.splice(toIndex, 0, movedItem);
+
+    renderCallback();
+    await saveCallback();
+  };
+
+  // Touch events via de specifieke sleephendel
+  const handle = li.querySelector(".drag-handle");
+  if (!handle) return;
+
+  handle.addEventListener("touchstart", () => {
+    draggedEl = li;
+    li.classList.add("dragging");
+  }, { passive: true });
+
+  handle.addEventListener("touchmove", (e) => {
+    const targetEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)?.closest(".item-card");
+    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
+    if (targetEl && targetEl !== draggedEl) {
+      targetEl.classList.add("drag-over");
+    }
+  }, { passive: true });
+
+  handle.addEventListener("touchend", async (e) => {
+    if (!draggedEl) return;
+    draggedEl.classList.remove("dragging");
+    const changedTouch = e.changedTouches[0];
+    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY)?.closest(".item-card");
+    document.querySelectorAll(".item-card").forEach(el => el.classList.remove("drag-over"));
+
+    if (targetEl && targetEl !== draggedEl) {
+      const fromIndex = parseInt(draggedEl.dataset.index, 10);
+      const toIndex = parseInt(targetEl.dataset.index, 10);
+      const movedItem = arrayRef.splice(fromIndex, 1)[0];
+      arrayRef.splice(toIndex, 0, movedItem);
+      renderCallback();
+      await saveCallback();
+    }
+    draggedEl = null;
   });
 }
 
