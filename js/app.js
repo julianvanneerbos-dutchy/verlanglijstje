@@ -18,7 +18,7 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-// --- 1. CONFIGURATIE & AUTH SETUP ---
+// --- 1. CONFIGURATIE & STATE ---
 const auth = getAuth();
 const ADMIN_EMAIL = "julian.vanneerbos@gmail.com";
 
@@ -35,13 +35,17 @@ let cachedLists = [];
 let pendingClaimItemId = null;
 let editingListId = null;
 
+let unsubscribeItems = null;
+let unsubscribeClaims = null;
+let unsubscribeListMeta = null;
+
 // DOM Elementen
 const listTitleEl = document.getElementById("list-title");
 const btnBackOverview = document.getElementById("btn-back-overview");
 const btnLogout = document.getElementById("btn-logout");
 const itemsListEl = document.getElementById("items-list");
 
-// Login Modal
+// Login Modal (Admin)
 const modalAdminLogin = document.getElementById("modal-admin-login");
 const formAdminLogin = document.getElementById("form-admin-login");
 const inputAdminPin = document.getElementById("input-admin-pin");
@@ -69,13 +73,13 @@ const btnChangeBuyerName = document.getElementById("btn-change-buyer-name");
 const displayBuyerPin = document.getElementById("display-buyer-pin");
 const btnShare = document.getElementById("btn-share");
 
-// Cadeau modal
+// Cadeau modal (Admin)
 const modalAdd = document.getElementById("modal-add-item");
 const btnOpenAddModal = document.getElementById("btn-open-add-modal");
 const btnCloseModal = document.getElementById("btn-close-modal");
 const formAddItem = document.getElementById("form-add-item");
 
-// Koper modal
+// Koper modal (Familie)
 const modalBuyerName = document.getElementById("modal-buyer-name");
 const modalBuyerTitle = document.getElementById("modal-buyer-title");
 const formBuyerName = document.getElementById("form-buyer-name");
@@ -85,9 +89,9 @@ const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
 
 // --- 2. AUTHENTICATION & ROUTERING ---
 onAuthStateChanged(auth, async (user) => {
-  // Alleen als admin behandelen als het e-mailadres klopt én er géén pincode in de URL zit
+  // Alleen admin als het mailadres klopt EN er geen pincode in de URL zit
   const urlHasPin = urlParams.has("pin");
-  isCurrentUserAdmin = user && user.email === ADMIN_EMAIL && !urlHasPin;
+  isCurrentUserAdmin = !!(user && user.email === ADMIN_EMAIL && !urlHasPin);
 
   if (isCurrentUserAdmin) {
     btnLogout.classList.remove("hidden");
@@ -100,19 +104,20 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   if (listId) {
-    // Familie/koper: zorg voor een anonieme sessie voor Firestore-toegang
+    // Familie/koper route: zorg dat er EERST een anonieme sessie actief is voor Firestore
     if (!user) {
       try {
         await signInAnonymously(auth);
+        return; // onAuthStateChanged triggert direct opnieuw zodra de user klaarstaat
       } catch (err) {
         console.error("Anoniem aanmelden mislukt:", err);
       }
     }
     renderListDetail();
   } else {
-    // Dashboard route: uitsluitend voor beheerder
+    // Dashboard route: puur voor beheerder
     if (isCurrentUserAdmin) {
-      if (modalAdminLogin.open) modalAdminLogin.close();
+      if (modalAdminLogin && modalAdminLogin.open) modalAdminLogin.close();
       renderDashboard();
     } else {
       showAdminLoginModal();
@@ -121,6 +126,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function showAdminLoginModal() {
+  if (!modalAdminLogin) return;
   modalAdminLogin.showModal();
 
   formAdminLogin.onsubmit = async (e) => {
@@ -147,6 +153,8 @@ function renderDashboard() {
   if (listsOverviewPanel) listsOverviewPanel.classList.remove("hidden");
   listTitleEl.textContent = "Mijn Verlanglijstjes";
   btnBackOverview.classList.add("hidden");
+  if (adminPanel) adminPanel.classList.add("hidden");
+  if (buyerPanel) buyerPanel.classList.add("hidden");
 
   onSnapshot(collection(db, "lists"), (snapshot) => {
     cachedLists = snapshot.docs.map(docSnap => ({
@@ -250,7 +258,7 @@ function renderListsCards() {
   });
 }
 
-// Sorteren & drag-and-drop
+// Drag & Drop
 let draggedEl = null;
 
 function attachDragEvents(li) {
@@ -332,7 +340,9 @@ async function saveNewListOrder() {
 // SCENARIO B: LIJSTWEERGAVE (Cadeaus & Claims)
 // ===================================================
 function renderListDetail() {
-  // Beheerder vs Koper interface configuratie
+  if (listsOverviewPanel) listsOverviewPanel.classList.add("hidden");
+
+  // Interface configuratie: beheerder vs familie
   if (isCurrentUserAdmin) {
     btnBackOverview.classList.remove("hidden");
     btnBackOverview.onclick = () => { window.location.search = ""; };
@@ -376,7 +386,7 @@ function renderListDetail() {
     };
 
   } else {
-    // Familie/koper weergave: verberg strikt alle beheer-elementen
+    // Familie/koper: alle beheer elementen strikt verbergen
     btnBackOverview.classList.add("hidden");
     adminPanel.classList.add("hidden");
     buyerPanel.classList.remove("hidden");
@@ -391,7 +401,8 @@ function renderListDetail() {
   }
 
   // Luister naar lijstmetadata en voer PIN-verificatie uit voor kopers
-  onSnapshot(doc(db, "lists", listId), (docSnap) => {
+  if (unsubscribeListMeta) unsubscribeListMeta();
+  unsubscribeListMeta = onSnapshot(doc(db, "lists", listId), (docSnap) => {
     if (!docSnap.exists()) {
       listTitleEl.textContent = "Lijst niet gevonden";
       itemsListEl.innerHTML = "<p class='label'>Dit verlanglijstje bestaat niet meer.</p>";
@@ -401,37 +412,53 @@ function renderListDetail() {
 
     const data = docSnap.data();
     listTitleEl.textContent = data.title || "Verlanglijstje";
-    currentListBuyerPin = data.buyerPin || "";
+    currentListBuyerPin = String(data.buyerPin || "");
 
     if (isCurrentUserAdmin) {
       if (displayBuyerPin) displayBuyerPin.textContent = currentListBuyerPin;
+      startDataListeners();
     } else {
-      if (buyerPinFromUrl !== currentListBuyerPin) {
+      const cleanUrlPin = String(buyerPinFromUrl || "").trim();
+
+      if (cleanUrlPin !== currentListBuyerPin) {
         buyerPanel.classList.add("hidden");
         itemsListEl.innerHTML = `
           <div class="card" style="text-align: center; padding: 2rem;">
             <h3>🔒 Toegang geweigerd</h3>
-            <p class="label" style="margin-top: 0.5rem;">De pincode in deze link klopt niet of is verlopen.</p>
+            <p class="label" style="margin-top: 0.5rem;">De pincode in deze link klopt niet of ontbreekt.</p>
           </div>
         `;
         return;
       }
+
+      startDataListeners();
     }
+  }, (err) => {
+    console.error("Fout bij ophalen lijstmetadata:", err);
   });
+}
+
+function startDataListeners() {
+  if (unsubscribeItems) unsubscribeItems();
+  if (unsubscribeClaims) unsubscribeClaims();
 
   // Luister naar items
-  onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
+  unsubscribeItems = onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
     cachedItems = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     renderItems();
+  }, (err) => {
+    console.error("Fout bij ophalen items:", err);
   });
 
   // Luister naar claims
-  onSnapshot(collection(db, "lists", listId, "claims"), (snapshot) => {
+  unsubscribeClaims = onSnapshot(collection(db, "lists", listId, "claims"), (snapshot) => {
     cachedClaims = {};
     snapshot.docs.forEach(docSnap => {
       cachedClaims[docSnap.id] = docSnap.data();
     });
     renderItems();
+  }, (err) => {
+    console.error("Fout bij ophalen claims:", err);
   });
 }
 
