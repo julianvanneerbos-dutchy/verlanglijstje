@@ -15,7 +15,9 @@ import {
   signInWithEmailAndPassword, 
   signInAnonymously, 
   signOut,
-  onAuthStateChanged 
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // --- 0. PWA SERVICE WORKER REGISTRATIE ---
@@ -41,6 +43,11 @@ const ICONS = {
 // --- 2. CONFIGURATIE & STATE ---
 const auth = getAuth();
 const ADMIN_EMAIL = "julian.vanneerbos@gmail.com";
+
+// Garandeer dat auth sessies lokaal worden vastgehouden (IndexedDB)
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn("Kon persistente sessie niet instellen:", err);
+});
 
 const urlParams = new URLSearchParams(window.location.search);
 const listId = urlParams.get("list");
@@ -258,6 +265,7 @@ function showAdminLoginModal() {
     const pin = inputAdminPin.value.trim();
 
     try {
+      await setPersistence(auth, browserLocalPersistence);
       await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pin);
       modalAdminLogin.close();
       inputAdminPin.value = "";
