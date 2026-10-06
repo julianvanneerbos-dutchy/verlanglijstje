@@ -1,159 +1,33 @@
-import { db } from "./firebase-config.js";
-import { 
-  collection, 
-  doc, 
-  onSnapshot, 
-  addDoc, 
-  deleteDoc, 
-  updateDoc, 
-  setDoc, 
-  serverTimestamp,
-  writeBatch
-} from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  signInAnonymously, 
-  signOut,
-  onAuthStateChanged,
-  setPersistence,
-  browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-// --- 0. PWA SERVICE WORKER REGISTRATIE ---
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((err) => {
-      console.warn("ServiceWorker registratie mislukt:", err);
-    });
-  });
+// --- CHANGELOG & VERSIENUMMER LOGICA ---
+
+// 1. Functie die meteen bij het opstarten het nieuwste versienummer ophaalt
+async function loadLatestVersion() {
+  try {
+    const res = await fetch("./changelog.json?v=" + Date.now());
+    if (!res.ok) return;
+    const releases = await res.json();
+    // Pakt het eerste item uit de lijst (bijv. v1.4.0) en zet het in de badge
+    if (Array.isArray(releases) && releases.length > 0 && releases[0].version) {
+      if (appVersionBadge) {
+        appVersionBadge.textContent = releases[0].version;
+      }
+    }
+  } catch (err) {
+    console.warn("Kon versienummer niet ophalen:", err);
+  }
 }
 
-// --- 1. MODERNE SVG ICONEN (Identiek aan Boodschappenapp) ---
-const ICONS = {
-  drag: `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Sleep om te sorteren"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
-  
-  // Exact het potloodje uit de boodschappenapp (edit-3 / feather-edit)
-  edit: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
-  
-  // Exact de prullenbak uit de boodschappenapp (trash-2)
-  trash: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`
-};
+// 2. Roep de functie direct aan zodra de app opstart
+loadLatestVersion();
 
-// --- 2. CONFIGURATIE & STATE ---
-const auth = getAuth();
-const ADMIN_EMAIL = "julian.vanneerbos@gmail.com";
-
-// Garandeer dat auth sessies lokaal worden vastgehouden (IndexedDB)
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.warn("Kon persistente sessie niet instellen:", err);
-});
-
-const urlParams = new URLSearchParams(window.location.search);
-const listId = urlParams.get("list");
-const buyerPinFromUrl = urlParams.get("pin");
-
-let isCurrentUserAdmin = false;
-let currentBuyerName = localStorage.getItem("buyer_name") || "";
-let showGiverNames = localStorage.getItem("show_giver_names") === "true"; // Standaard UIT
-let currentListBuyerPin = "";
-let cachedItems = [];
-let cachedClaims = {};
-let cachedLists = [];
-let pendingClaimItemId = null;
-let editingListId = null;
-let editingItemId = null;
-
-let unsubscribeItems = null;
-let unsubscribeClaims = null;
-let unsubscribeListMeta = null;
-
-// DOM Elementen
-const listTitleEl = document.getElementById("list-title");
-const btnBackOverview = document.getElementById("btn-back-overview");
-const btnLogout = document.getElementById("btn-logout");
-const itemsListEl = document.getElementById("items-list");
-
-// Login Modal (Admin)
-const modalAdminLogin = document.getElementById("modal-admin-login");
-const formAdminLogin = document.getElementById("form-admin-login");
-const inputAdminPin = document.getElementById("input-admin-pin");
-const loginError = document.getElementById("login-error");
-
-// Dashboard elementen
-const listsOverviewPanel = document.getElementById("lists-overview-panel");
-const allListsContainer = document.getElementById("all-lists-container");
-const btnCreateNewList = document.getElementById("btn-create-new-list");
-const modalCreateList = document.getElementById("modal-create-list");
-const formCreateList = document.getElementById("form-create-list");
-const btnCancelList = document.getElementById("btn-cancel-list");
-
-// Bewerk modal (Lijst)
-const modalEditList = document.getElementById("modal-edit-list");
-const formEditList = document.getElementById("form-edit-list");
-const editListTitleInput = document.getElementById("edit-list-title");
-const btnCancelEditList = document.getElementById("btn-cancel-edit-list");
-
-// Panelen
-const adminPanel = document.getElementById("admin-panel");
-const buyerPanel = document.getElementById("buyer-panel");
-const buyerStatusText = document.getElementById("buyer-status-text");
-const btnChangeBuyerName = document.getElementById("btn-change-buyer-name");
-const displayBuyerPin = document.getElementById("display-buyer-pin");
-const btnShare = document.getElementById("btn-share");
-const toggleShowNames = document.getElementById("toggle-show-names");
-
-// Cadeau toevoegen & bewerken modals
-const modalAdd = document.getElementById("modal-add-item");
-const btnOpenAddModal = document.getElementById("btn-open-add-modal");
-const btnCloseModal = document.getElementById("btn-close-modal");
-const formAddItem = document.getElementById("form-add-item");
-
-const modalEditItem = document.getElementById("modal-edit-item");
-const formEditItem = document.getElementById("form-edit-item");
-const btnCancelEditItem = document.getElementById("btn-cancel-edit-item");
-const editItemTitle = document.getElementById("edit-item-title");
-const editItemUrl = document.getElementById("edit-item-url");
-const editItemPrice = document.getElementById("edit-item-price");
-const editItemNotes = document.getElementById("edit-item-notes");
-
-// Bevestiging claimen modal
-const modalConfirmClaim = document.getElementById("modal-confirm-claim");
-const formConfirmClaim = document.getElementById("form-confirm-claim");
-const confirmClaimText = document.getElementById("confirm-claim-text");
-const btnCancelConfirmClaim = document.getElementById("btn-cancel-confirm-claim");
-
-// Koper modal (Familie)
-const modalBuyerName = document.getElementById("modal-buyer-name");
-const modalBuyerTitle = document.getElementById("modal-buyer-title");
-const formBuyerName = document.getElementById("form-buyer-name");
-const inputBuyerName = document.getElementById("input-buyer-name");
-const btnCancelBuyerName = document.getElementById("btn-cancel-buyer-name");
-
-// Release notes elementen
-const adminFooter = document.getElementById("admin-footer");
-const btnOpenReleases = document.getElementById("btn-open-releases");
-const modalReleaseNotes = document.getElementById("modal-release-notes");
-const btnCloseReleases = document.getElementById("btn-close-releases");
-const releaseNotesContainer = document.getElementById("release-notes-container");
-
-// Toggle setup
-if (toggleShowNames) {
-  toggleShowNames.checked = showGiverNames;
-  toggleShowNames.addEventListener("change", () => {
-    showGiverNames = toggleShowNames.checked;
-    localStorage.setItem("show_giver_names", showGiverNames ? "true" : "false");
-    renderItems();
-  });
-}
-
-// Release Notes modal events
+// 3. Als je op de knop klikt, open de pop-up en toon alle versies uit changelog.json
 if (btnOpenReleases) {
   btnOpenReleases.onclick = async () => {
     modalReleaseNotes.showModal();
     try {
-      const res = await fetch("./releases.json?v=" + Date.now());
-      if (!res.ok) throw new Error("Kon release notes niet ophalen");
+      const res = await fetch("./changelog.json?v=" + Date.now());
+      if (!res.ok) throw new Error("Kon changelog niet ophalen");
       const releases = await res.json();
       renderReleaseNotes(releases);
     } catch (err) {
@@ -162,6 +36,7 @@ if (btnOpenReleases) {
   };
 }
 
+// 4. Sluitknop van de pop-up
 if (btnCloseReleases) {
   btnCloseReleases.onclick = () => modalReleaseNotes.close();
 }
