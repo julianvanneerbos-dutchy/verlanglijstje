@@ -7,7 +7,7 @@ const ASSETS_TO_CACHE = [
   "./js/app.js",
   "./js/firebase-config.js",
   "./manifest.json",
-  "./releases.json"
+  "./changelog.json"
 ];
 
 // Install: direct cachen en activeren zonder te wachten
