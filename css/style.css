@@ -473,6 +473,16 @@ dialog textarea:focus {
   color: var(--primary);
 }
 
+.version-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  background: var(--primary-light);
+  padding: 0.1rem 0.45rem;
+  border-radius: 12px;
+  margin-left: 0.35rem;
+}
+
 #modal-release-notes {
   max-width: 500px;
   width: 92%;
