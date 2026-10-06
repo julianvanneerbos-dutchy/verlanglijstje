@@ -1,5 +1,14 @@
 [
   {
+    "version": "v1.4.1",
+    "date": "Oktober 2026",
+    "changes": [
+      "Versienummer badge: Het actuele versienummer wordt nu automatisch getoond in de footer-knop via changelog.json.",
+      "Sessie-persistentie: Inlogstatus blijft nu blijvend bewaard via IndexedDB (voorkomt ongewenst uitloggen).",
+      "Service Worker update: Cache verhoogd naar v2 met verbeterde network-first afhandeling voor updates."
+    ]
+  },
+  {
     "version": "v1.4.0",
     "date": "Oktober 2026",
     "changes": [
